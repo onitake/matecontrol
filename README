@@ -1,0 +1,31 @@
+Matemat control module
+(c) 2014 Chaostreff Basel
+
+Build instructions
+
+Clone the matecontrol source code repository:
+
+$ git clone https://github.com/onitake/matecontrol
+$ cd matecontrol
+
+Fetch all submodules:
+
+$ git submodule init
+$ git submodule update
+
+If you need to change any configuration variables, flashing device, etc.,
+run the Aversive configurator:
+
+$ make menuconfig
+
+Compile the source code:
+
+$ make
+
+Reset the fuse bits to a proper state (optional):
+
+$ make fuse
+
+Flash the built program onto the controller:
+
+$ make program
