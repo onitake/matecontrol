@@ -1,0 +1,3 @@
+[submodule "aversive"]
+	path = aversive
+	url = http://git.droids-corp.org/aversive.git

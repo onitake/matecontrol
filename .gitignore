@@ -1,0 +1,9 @@
+*.o
+*.a
+*.elf
+*.hex
+*.bin
+*.eep
+*.old
+.aversive_conf
+compiler_files
