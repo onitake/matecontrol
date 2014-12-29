@@ -6,9 +6,10 @@ AVERSIVE_DIR = ../aversive
 # Project sources
 SRC = \
 	main.c \
-	dispatch.c
+	dispatch.c \
+	led.c
 
-CFLAGS = -DDISPATCH_SIZE=128
+CFLAGS = -DDISPATCH_SIZE=16
 
 ########################################
 
