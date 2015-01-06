@@ -9,7 +9,7 @@ SRC = \
 	dispatch.c \
 	led.c
 
-CFLAGS = -DDISPATCH_SIZE=16
+CFLAGS = -DDISPATCH_QUEUE_LENGTH=32
 
 ########################################
 

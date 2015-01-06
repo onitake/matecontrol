@@ -20,19 +20,33 @@
  */
 
 #include <stdbool.h>
-#if DYNMEM
-#include <stdlib.h>
-#endif
 #include <avr/io.h>
 #include <avr/wdt.h>
+#include <avr/sleep.h>
+#include <avr/interrupt.h>
 #include "main.h"
 #include "dispatch.h"
 #include "event.h"
 #include "led.h"
 
 /**
+ * Storage pool for the dispatch queue
+ */
+char main_pool[DISPATCH_POOL_SIZE(DISPATCH_QUEUE_LENGTH)] __attribute__((section (".noinit")));
+
+/**
+ * Global dispatch queue
+ */
+dispatch_t *main_dispatch __attribute__((section (".noinit")));
+
+/**
+ * Global running state
+ */
+bool main_running __attribute__((section (".noinit")));
+
+/**
  * Disables the watchdog upon system startup.
- * Do not call this function. It will be executed during CPU initialisation automatically.
+ * Do not call this function directly.
  */
 void watchdog_init(void) __attribute__((naked)) __attribute__((section(".init3")));
 void watchdog_init() {
@@ -45,48 +59,58 @@ void watchdog_init() {
 	return;
 }
 
+bool main_handle(event_t *event) {
+	main_event_t *priv = EVENT_PRIVATE(event, main_event_t);
+	switch (priv->type) {
+		case MAIN_EVENT_TYPE_SHUTDOWN:
+			main_running = false;
+			return true;
+	}
+	return false;
+}
+
 int main(void) {
 	// System initialisation
-	dispatch_init(16);
+	main_dispatch = dispatch_init(main_pool, sizeof(main_pool));
 	led_init();
 	
 	// Turn the first LED on
-	led_send(EVENT_TARGET_MAIN, LED_A, LED_EVENT_TYPE_ON);
+	led_send(main_dispatch, EVENT_TARGET_MAIN, LED_A, LED_EVENT_TYPE_ON);
 	
-	bool running = true;
-	while (running) {
-		event_t *event = dispatch_dequeue();
-		if (event) {
+	// Set idle sleep mode
+	set_sleep_mode(SLEEP_MODE_IDLE);
+	
+	// Enable interrupts
+	//sei();
+	
+	main_running = true;
+	while (main_running) {
+		event_t event;
+		if (dispatch_dequeue(main_dispatch, &event)) {
 			bool handled = false;
-			switch (event->destination) {
+			switch (event.destination) {
 				case EVENT_TARGET_MAIN:
-					if (event->type == MAIN_EVENT_TYPE_SHUTDOWN) {
-						running = false;
-					}
-					handled = true;
+					handled = main_handle(&event);
 					break;
 				case EVENT_TARGET_LED:
-					handled = led_handle(event);
+					handled = led_handle(&event);
 					break;
 				default:
 					// Ignore
 					break;
 			}
-#if DYNMEM
-			if (!handled) {
-				free(event);
-			}
-#endif
 		}
 #if IDLELOOP
-		if (running) {
-			// TODO sleep here
+	if (main_running) {
+			sleep_mode();
 		}
 #endif
 	}
 	
 	// System shutdown
-	dispatch_shutdown();
+	cli();
+	//led_shutdown();
+	dispatch_shutdown(main_dispatch);
 	
 	// Perform a software reset by enabling the watchdog at its smallest setting, then pass into an infinite loop
 	wdt_enable(WDTO_15MS);

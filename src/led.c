@@ -20,9 +20,6 @@
  */
 
 #include <avr/io.h>
-#if DYNMEM
-#include <stdlib.h>
-#endif
 #include "led.h"
 #include "dispatch.h"
 
@@ -59,25 +56,22 @@ void led_shutdown(bool off) {
 	}
 }
 
-bool led_send(event_target_t source, uint8_t led, uint8_t action) {
-#if DYNMEM
-	event_t *event = (event_t *) calloc(1, sizeof(event_t));
-#else
-	event_t levent;
-	event_t *event = &levent;
-#endif
-	event->source = source;
-	event->destination = EVENT_TARGET_LED;
-	event->type = action;
-	event->argument = led;
-	return dispatch_enqueue(event);
+bool led_send(dispatch_t *dispatch, event_target_e source, uint8_t led, uint8_t action) {
+	event_t event;
+	led_event_t *priv = EVENT_PRIVATE(&event, led_event_t);
+	event.source = source;
+	event.destination = EVENT_TARGET_LED;
+	priv->type = action;
+	priv->name = led;
+	return dispatch_enqueue(dispatch, &event);
 }
 
 bool led_handle(event_t *event) {
+	led_event_t *priv = EVENT_PRIVATE(event, led_event_t);
 	bool handled = false;
-	switch (event->type) {
+	switch (priv->type) {
 		case LED_EVENT_TYPE_ON:
-			switch (event->argument) {
+			switch (priv->name) {
 				case 0:
 					LED_PORT_A |= _BV(LED_P_A);
 					handled = true;
@@ -93,7 +87,7 @@ bool led_handle(event_t *event) {
 			}
 			break;
 		case LED_EVENT_TYPE_OFF:
-			switch (event->argument) {
+			switch (priv->name) {
 				case 0:
 					LED_PORT_A &= ~_BV(LED_P_A);
 					handled = true;
@@ -109,7 +103,7 @@ bool led_handle(event_t *event) {
 			}
 			break;
 		case LED_EVENT_TYPE_TOGGLE:
-			switch (event->argument) {
+			switch (priv->name) {
 				case 0:
 					LED_PORT_A ^= _BV(LED_P_A);
 					handled = true;
@@ -125,10 +119,5 @@ bool led_handle(event_t *event) {
 			}
 			break;
 	}
-#if DYNMEM
-	if (handled) {
-		free(event);
-	}
-#endif
 	return handled;
 }

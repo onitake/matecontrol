@@ -26,20 +26,31 @@
 #include <stdbool.h>
 
 /**
- * Event source and destination identifier type.
- * @see event_target_e for valid identifiers.
+ * Maximum size of a private event data structure.
+ * You should verify that all your private structures do not exceed this size.
+ * If your compiler supports C11 static assertions, you may use:
+ * struct private_struct {
+ *     // members
+ * };
+ * EVENT_SIZE_CHECK(struct private_struct);
  */
-typedef uint8_t event_target_t;
+#define EVENT_SIZE_MAX 16
+
 /**
- * Event type.
- * The type codes are module specific, this is just the data type used to hold the code.
+ * Loads and casts the private member from an event structure
  */
-typedef uint8_t event_type_t;
-/**
- * Event argument type.
- * The meaning of this type is module specific. This is just the maximum data size.
- */
-typedef uint16_t event_argument_t;
+#define EVENT_PRIVATE(event, type) ((type *) &((event)->argument))
+
+#if (__STDC_VERSION__ >= 201112L || __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6))
+#define EVENT_SIZE_CHECK(type) _Static_assert(sizeof(type) <= EVENT_SIZE_MAX, #type " is too large to fit into the dispatch queue")
+#else
+#define EVENT_SIZE_CHECK(type)
+#warning Compiler doesnt support C11 static asserts. Cannot check type size at compile time.
+#endif
+
+/* Forward declaration */
+struct dispatch_t;
+typedef struct dispatch_t dispatch_t;
 
 /**
  * Event source/destination identifiers.
@@ -49,15 +60,17 @@ enum event_target_e {
 	EVENT_TARGET_MAIN,
 	EVENT_TARGET_LED,
 };
+typedef enum event_target_e event_target_e;
 
 /**
  * Event structure
  */
-typedef struct {
-	event_target_t source;
-	event_target_t destination;
-	event_type_t type;
-	event_argument_t argument;
-} event_t;
+struct event_t {
+	dispatch_t *dispatch;
+	event_target_e source;
+	event_target_e destination;
+	uint8_t argument[EVENT_SIZE_MAX];
+};
+typedef struct event_t event_t;
 
 #endif /*_EVENT_H*/

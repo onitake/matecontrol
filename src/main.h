@@ -30,5 +30,20 @@
 enum main_event_type_e {
 	MAIN_EVENT_TYPE_SHUTDOWN,
 };
+typedef enum main_event_type_e main_event_type_e;
+
+/**
+ * Main process event structure
+ */
+struct main_event_t {
+	main_event_type_e type;
+};
+typedef struct main_event_t main_event_t;
+EVENT_SIZE_CHECK(struct main_event_t);
+
+/**
+ * Global dispatch queue
+ */
+extern dispatch_t *main_dispatch;
 
 #endif /*_MAIN_H*/
