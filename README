@@ -22,7 +22,14 @@ Compile the source code:
 
 $ make
 
-Reset the fuse bits to a proper state (optional):
+Change the fuse bits (guided):
+For a factory-new ATmega128A device, you need to program a few fuses for
+correct operation.
+- M103C = 1 (disable ATmega103 compatibility mode)
+- CKOPT = 0 (full crystal oscillator swing for 16MHz operation)
+- CKSEL3:0 = 1111 (crystal oscillator, long startup time)
+- SUT1:0 = 11 (maximum startup time, 65ms)
+The resulting fuse bytes should then be: (E:FF, H:89, L:FF)
 
 $ make fuse
 
