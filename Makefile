@@ -7,6 +7,22 @@ MAKEFILE := Makefile
 all:
 	list='$(SUBDIRS)'; for subdir in $$list; do test "$$subdir" = . -o ! -r "$$subdir/$(MAKEFILE)" || (cd $$subdir && $(MAKE) $(MAKEFLAGS)); done
 
+help:
+	@echo "Make targets:"
+	@echo
+	@echo "all:        Default; build all MC targets and documentation"
+	@echo "clean:      Delete build targets and intermediate files"
+	@echo "doc:        Compile documentation"
+	@echo "test:       Compile test cases"
+	@echo "program:    Flash main firmware to controller"
+	@echo "erase:      Erase controller flash"
+	@echo "reset:      Reboot the controller"
+	@echo "debug:      Build all MC targets in debug mode (?)"
+	@echo "fuse:       Set fuse bits on controller"
+	@echo "config:     Run simple configuration"
+	@echo "noconfig:   Run automatic configuration, updating entries"
+	@echo "menuconfig: Run ncurses text mode UI configuration"
+
 clean:
 	list='$(SUBDIRS)'; for subdir in $$list; do test "$$subdir" = . -o ! -r "$$subdir/$(MAKEFILE)" || (cd $$subdir && $(MAKE) $(MAKEFLAGS) clean); done
 
