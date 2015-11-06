@@ -7,7 +7,6 @@ AVERSIVE_DIR = ../aversive
 SRC = \
 	main.c \
 	memory.c \
-	dispatch.c \
 	led.c \
 	clock.c \
 	console.c \
