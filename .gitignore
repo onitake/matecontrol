@@ -5,6 +5,9 @@
 *.bin
 *.eep
 *.old
+efuse*
+hfuse*
+lfuse*
 .aversive_conf
 compiler_files
 doc/Atmel-8151-8-bit-AVR-ATmega128A_Datasheet.pdf
