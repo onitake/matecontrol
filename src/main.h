@@ -1,9 +1,16 @@
 /**
- * Matemat controller firmware
- * Copyright (C) 2014 Chaostreff Basel
+ * @file main.h
+ * @brief Main process interface
  * 
- * main.h
- * Main module interface
+ * @par Configurable options
+ * 
+ * Macro               | Default  | Values         | Description
+ * --------------------|----------|----------------|-----------------------------------------------
+ * MAIN_QUEUE_SIZE     | [undef]  | 0..255         | Size of the event pool
+ * MAIN_PRIORITY       | [undef]  | 0..127         | Event queue priority
+ * 
+ * @copyright Matemat controller firmware
+ * Copyright © 2014 Chaostreff Basel
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,28 +29,14 @@
 #ifndef _MAIN_H
 #define _MAIN_H
 
-#include "event.h"
+/**
+ * Get the current system time (ticks)
+ */
+uint16_t main_time(void);
 
 /**
- * Main process event types
+ * Signal the main process to shut down.
  */
-enum main_event_type_e {
-	MAIN_EVENT_TYPE_SHUTDOWN,
-};
-typedef enum main_event_type_e main_event_type_e;
-
-/**
- * Main process event structure
- */
-struct main_event_t {
-	main_event_type_e type;
-};
-typedef struct main_event_t main_event_t;
-EVENT_SIZE_CHECK(struct main_event_t);
-
-/**
- * Global dispatch queue
- */
-extern dispatch_t *main_dispatch;
+void main_shutdown(void);
 
 #endif /*_MAIN_H*/
