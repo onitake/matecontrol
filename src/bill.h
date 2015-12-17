@@ -62,14 +62,19 @@ typedef enum {
 	BILL_STATE_SELFTEST,
 	/** Standby */
 	BILL_STATE_IDLE,
-	/** Scanner is validation */
+	/** Scanner is validating */
 	BILL_STATE_VALIDATION,
-	/** Validation has ended, or error */
-	BILL_STATE_END,
-	/** Banknote was validated, but has not been stacked yet */
+	/** A banknote was scanned successfully */
+	BILL_STATE_SCANNED,
+	/** Accept a banknote */
 	BILL_STATE_ACCEPT,
+	/** Reject a banknote (only available in escrow mode) */
+	BILL_STATE_REJECT,
+	/** An error has occured */
+	BILL_STATE_ERROR,
+	/** Processing has ended */
+	BILL_STATE_END,
 } bill_state_t;
-
 
 /**
  * Successful scan event handler.

@@ -494,6 +494,15 @@ void console_validate_bill(const char *buf, uint8_t size) {
 			case BILL_STATE_ACCEPT:
 				printf_P(PSTR("accepting"));
 				break;
+			case BILL_STATE_REJECT:
+				printf_P(PSTR("rejecting"));
+				break;
+			case BILL_STATE_SCANNED:
+				printf_P(PSTR("scanned"));
+				break;
+			case BILL_STATE_ERROR:
+				printf_P(PSTR("error"));
+				break;
 		}
 		printf_P(PSTR("\r\n"));
 	} else {

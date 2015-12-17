@@ -15,30 +15,35 @@
  * |ACK  |K     |Input     |Low    |Acknowledge (escrow mode)   |
  * |REJ  |R     |Input     |Low    |Reject (escrow mode)        |
  * 
- * Bit pattern graph of initialisation sequence:
+ * On powerup, all outputs are put into their idle (non-active) state,
+ * except for busy, which is high. Then they are pulled active for a few
+ * milliseconds each. The sequence is:
  * 
  * @dot
  * digraph SelfTest {
  *   rankdir=LR;
  *   node [shape=Mrecord fontsize=11 fontname="Helvetica"];
- *   S0 [label="{V|S|A|B|E}|{1|1|1|1|7}"];
- *   S1 [label="{V|S|A|B|E}|{1|0|0|1|3}"];
- *   S2 [label="{V|S|A|B|E}|{1|0|0|1|5}"];
- *   S3 [label="{V|S|A|B|E}|{1|0|0|1|6}"];
- *   S4 [label="{V|S|A|B|E}|{0|0|0|1|7}"];
- *   S5 [label="{V|S|A|B|E}|{1|0|1|1|7}"];
- *   S6 [label="{V|S|A|B|E}|{1|1|0|1|7}"];
- *   S7 [label="{V|S|A|B|E}|{1|0|0|1|7}"];
- *   S8 [label="{V|S|A|B|E}|{1|0|0|1|7}"];
- *   S9 [label="{V|S|A|B|E}|{1|0|0|0|7}"];
- *   S0->S1->S2->S3->S4->S5->S6->S7->S8->S9;
+ *   E1->E2->E3->V->A->S
  * }
  * @enddot
  * 
+ * After initialisation is complete, BUSY goes low.
+ * At this point, INH should be low and ACK and REJ should be high to start
+ * accepting bills.
+ * 
+ * When a bill is inserted, BUSY goes high.
+ * 
  * After a banknote is accepted by the scanner, it will output the corresponding
- * bit pattern on VEND1:3 (and VALID will be low).
- * To return the scanner back into accept mode, pull INH low shortly and then
- * back high.
+ * bit pattern on VEND1:3, then pull VALID low.
+ * To acknowledge the scanned bill, pull ACK low for a few milliseconds, then
+ * back high. This will release BUSY low and put the scanner back into accept mode.
+ * If escrow mode is on, the bill will not be sorted until ACK is received.
+ * In this mode, it is possible to eject the bill by sending a REJ signal
+ * (in the same manner as ACK) instead.
+ * 
+ * The process can be interrupted at any time by setting INH high.
+ * While INH is high, the transport mechanism is disabled and no banknotes
+ * are accepted.
  * 
  * State machine diagram:
  * 
@@ -47,19 +52,26 @@
  *   node [shape=Mrecord fontsize=11 fontname="Helvetica"];
  *   edge [fontsize=11 fontname="Helvetica"];
  *   UNINITIALIZED [shape=point];
- *   SELFTEST [label="{SELFTEST | ¬INH ∧ ACK ∧ REJ}"];
- *   IDLE [label="{IDLE | INH}"];
- *   VALIDATION [label="{VALIDATION | ACK ∨ REJ}"];
- *   ACCEPT [label="{ACCEPT | REPORT}"];
- *   END [label="{END | ERROR ∧ ¬INH}"];
- *   UNINITIALIZED->SELFTEST [label=""];
- *   SELFTEST->IDLE [label="¬BUSY"];
- *   IDLE->VALIDATION [label="BUSY"];
- *   VALIDATION->END [label="ABN"];
- *   VALIDATION->ACCEPT [label="VALID"];
- *   ACCEPT->IDLE [label="¬BUSY"];
- *   ACCEPT->END [label="ABN"];
- *   END->IDLE [label="¬BUSY"];
+ *   SELFTEST [label="{SELFTEST | }"];
+ *   IDLE [label="{IDLE | I:L K:H R:H}"];
+ *   VALIDATION [label="{VALIDATION | }"];
+ *   SCANNED [label="{SCANNED | }"];
+ *   ACCEPT [label="{ACCEPT | K:L}"];
+ *   REJECT [label="{REJECT* | R:L}"];
+ *   ERROR [label="{ERROR | }"];
+ *   END [label="{END | K:H R:H}"];
+ *   UNINITIALIZED->SELFTEST [label="V:H S:L A:L B:H E:H"];
+ *   SELFTEST->IDLE [label="B:L"];
+ *   IDLE->VALIDATION [label="B:H"];
+ *   VALIDATION->ERROR [label="A:H"];
+ *   VALIDATION->SCANNED [label="V:L"];
+ *   SCANNED->ACCEPT [label=""];
+ *   SCANNED->REJECT [label=""];
+ *   ACCEPT->END [label=""];
+ *   REJECT->END [label=""];
+ *   ACCEPT->ERROR [label="A:H"];
+ *   ERROR->END [label="A:L"];
+ *   END->IDLE [label="V:H B:L"];
  * }
  * @enddot
  * 
@@ -224,6 +236,20 @@ static bill_t bill_global __attribute__((section(".noinit")));
  * Event callback
  */
 static void bill_callback(struct callout_mgr *cm, struct callout *tim, void *arg);
+/**
+ * State debugging
+ */
+static void bill_debug(uint8_t pins);
+/* State machine transitions */
+static void bill_state_unitialized(uint8_t pins);
+static void bill_state_selftest(uint8_t pins);
+static void bill_state_idle(uint8_t pins);
+static void bill_state_validation(uint8_t pins);
+static void bill_state_scanned(uint8_t pins);
+static void bill_state_accept(uint8_t pins);
+static void bill_state_reject(uint8_t pins);
+static void bill_state_error(uint8_t pins);
+static void bill_state_end(uint8_t pins);
 
 bool bill_init(struct callout_mgr *manager, bill_report_cb *report, bill_error_cb *error) {
 	bill_global.memory = memory_init(bill_global.pool, sizeof(bill_global.pool), sizeof(bill_event_t));
@@ -260,6 +286,29 @@ void bill_shutdown(void) {
 	callout_stop(bill_global.manager, &bill_global.poll.co);
 }
 
+void bill_debug(uint8_t pins) {
+	// Calculate the difference in state (0 = same, 1 = changed)
+	uint8_t diff = pins ^ bill_global.input;
+	/*char ports[17];
+	size_t i;
+	for (i = 0; i < 8; i++) {
+		ports[i] = (PINC & (0x80 >> i)) ? '1' : '0';
+	}
+	for (i = 0; i < 8; i++) {
+		ports[i + 8] = (PINB & (0x80 >> i)) ? '1' : '0';
+	}
+	ports[16] = '\0';
+	printf_P(PSTR("PINC:PINB=%s\r\n"), ports);
+	printf_P(PSTR("bill valid=%c stkf=%c abn=%c busy=%c vend=%u\r\n"), BILL_PINS_VALID(pins) ? 'H' : 'L', BILL_PINS_STKF(pins) ? 'H' : 'L', BILL_PINS_ABN(pins) ? 'H' : 'L', BILL_PINS_BUSY(pins) ? 'H' : 'L', BILL_PINS_VEND(pins) >> 5);*/
+	printf_P(PSTR("bill"));
+	if (BILL_PINS_VALID(diff)) printf_P(PSTR(" valid=%c"), BILL_PINS_VALID(pins));
+	if (BILL_PINS_STKF(diff)) printf_P(PSTR(" stkf=%c"), BILL_PINS_STKF(pins));
+	if (BILL_PINS_ABN(diff)) printf_P(PSTR(" abn=%c"), BILL_PINS_ABN(pins));
+	if (BILL_PINS_BUSY(diff)) printf_P(PSTR(" busy=%c"), BILL_PINS_BUSY(pins));
+	if (BILL_PINS_VEND(diff)) printf_P(PSTR(" vend=0x%x"), BILL_PINS_VEND(pins) >> 5);
+	printf_P(PSTR("\r\n"));
+}
+
 void bill_callback(struct callout_mgr *cm, struct callout *tim, void *arg) {
 	if (arg) {
 		bill_event_t *priv = (bill_event_t *) arg;
@@ -267,126 +316,43 @@ void bill_callback(struct callout_mgr *cm, struct callout *tim, void *arg) {
 			// Capture pin state
 			uint8_t pins = BILL_PINS();
 			
-			// Check if pin state has changed (or is unknown)
-			if (pins != bill_global.input || bill_global.state == BILL_STATE_UNINITIALIZED) {
-				// Calculate the difference in state (0 = same, 1 = changed)
-				// -> not possible if previous state is unknown
-				//uint8_t diff = pins ^ bill_global.input;
-				
-				// Update input pin cache
-				bill_global.input = pins;
-				
-				// FIXME REMOVETHIS Print out pin state
-				char ports[17];
-				size_t i;
-				for (i = 0; i < 8; i++) {
-					ports[i] = (PINC & (0x80 >> i)) ? '1' : '0';
-				}
-				for (i = 0; i < 8; i++) {
-					ports[i + 8] = (PINB & (0x80 >> i)) ? '1' : '0';
-				}
-				ports[16] = '\0';
-				printf_P(PSTR("PINC:PINB=%s\r\n"), ports);
-				printf_P(PSTR("bill valid=%c stkf=%c abn=%c busy=%c vend=%u\r\n"), BILL_PINS_VALID(pins) ? 'H' : 'L', BILL_PINS_STKF(pins) ? 'H' : 'L', BILL_PINS_ABN(pins) ? 'H' : 'L', BILL_PINS_BUSY(pins) ? 'H' : 'L', BILL_PINS_VEND(pins) >> 5);
-
-				// Evaluate state
-				switch (bill_global.state) {
-					case BILL_STATE_UNINITIALIZED:
-					case BILL_STATE_SELFTEST:
-						if (BILL_PINS_VALID(pins) && !BILL_PINS_STKF(pins) && !BILL_PINS_ABN(pins) && !BILL_PINS_BUSY(pins) && BILL_PINS_VEND(pins) == BILL_BITS_VEND(1, 1, 1)) {
-							// Self-test complete
-							bill_global.state = BILL_STATE_IDLE;
-						} else if (bill_global.state == BILL_STATE_UNINITIALIZED) {
-							BILL_PORT_INH(1);
-							bill_global.state = BILL_STATE_SELFTEST;
-						}
-						break;
-						
-					case BILL_STATE_IDLE:
-						if (BILL_PINS_BUSY(pins) && !BILL_PINS_ABN(pins) && !bill_global.inhibit) {
-							// Scanning started
-							bill_global.state = BILL_STATE_VALIDATION;
-						}
-						break;
-						
-					case BILL_STATE_VALIDATION:
-						if (BILL_PINS_ABN(pins)) {
-							// Abort, jam
-							if (bill_global.error) {
-								bill_global.error(BILL_ERROR_SCAN, 0);
-							}
-							bill_global.state = BILL_STATE_END;
-						} else if (!BILL_PINS_VALID(pins)) {
-							// Escrow mode?
-							if (bill_global.escrow) {
-								// Accept bill (active L)
-								BILL_PORT_ACK(0);
-							}
-							// Store banknote value
-							bill_global.vend = BILL_PINS_VEND(pins);
-							bill_global.state = BILL_STATE_ACCEPT;
-						}
-						break;
-						
-					case BILL_STATE_ACCEPT:
-						if (BILL_PINS_ABN(pins)) {
-							if (bill_global.escrow) {
-								// Disable accept/reject state
-								BILL_PORT_ACK(1);
-								BILL_PORT_REJ(1);
-							}
-							
-							// Abort, jam
-							if (bill_global.error) {
-								bill_global.error(BILL_ERROR_SCAN, 0);
-							}
-							
-							bill_global.state = BILL_STATE_END;
-						} else if (BILL_PINS_STKF(pins) || !BILL_PINS_BUSY(pins)) {
-							if (bill_global.escrow) {
-								// Disable accept/reject state
-								BILL_PORT_ACK(0);
-								BILL_PORT_REJ(0);
-							}
-							
-							// Report accepted bill first
-							if (bill_global.report) {
-								size_t i;
-								for (i = 0; i < sizeof(BILL_DENOMINATIONS) / sizeof(BILL_DENOMINATIONS[0]); i++) {
-									if (pgm_read_byte(&BILL_DENOMINATIONS[i].vend) == BILL_PINS_VEND(pins)) {
-										bill_global.report(pgm_read_word(&BILL_DENOMINATIONS[i].denomination));
-										break;
-									}
-								}
-							}
-							
-							if (BILL_PINS_STKF(pins)) {
-								// Then report the full stack
-								if (bill_global.error) {
-									bill_global.error(BILL_ERROR_FULL, 0);
-								}
-							}
-							
-							// Signal completion
-							BILL_PORT_INH(0);
-							
-							bill_global.state = BILL_STATE_END;
-						}
-						break;
-						
-					case BILL_STATE_END:
-						if (!BILL_PINS_BUSY(pins)) {
-							// Return to accept state
-							BILL_PORT_INH(0);
-							
-							bill_global.state = BILL_STATE_IDLE;
-						}
-						
-						// Reset stored value
-						bill_global.vend = 0;
-						break;
-				}
+			// FIXME REMOVETHIS Dump pin state
+			bill_debug(pins);
+			
+			// Evaluate state and call transition handler
+			switch (bill_global.state) {
+				case BILL_STATE_UNINITIALIZED:
+					// Will only be entered once
+					bill_state_unitialized(pins);
+					break;
+				case BILL_STATE_SELFTEST:
+					bill_state_selftest(pins);
+					break;
+				case BILL_STATE_IDLE:
+					bill_state_idle(pins);
+					break;
+				case BILL_STATE_VALIDATION:
+					bill_state_validation(pins);
+					break;
+				case BILL_STATE_SCANNED:
+					bill_state_scanned(pins);
+					break;
+				case BILL_STATE_ACCEPT:
+					bill_state_accept(pins);
+					break;
+				case BILL_STATE_REJECT:
+					bill_state_reject(pins);
+					break;
+				case BILL_STATE_ERROR:
+					bill_state_error(pins);
+					break;
+				case BILL_STATE_END:
+					bill_state_end(pins);
+					break;
 			}
+			
+			// Update input pin cache
+			bill_global.input = pins;
 			
 			// Reschedule next poll event
 			callout_schedule(bill_global.manager, tim, BILL_POLL_TIME);
@@ -407,4 +373,102 @@ void bill_escrow(bool escrow) {
 
 bill_state_t bill_state(void) {
 	return bill_global.state;
+}
+
+void bill_state_unitialized(uint8_t pins) {
+	bill_global.state = BILL_STATE_SELFTEST;
+}
+void bill_state_selftest(uint8_t pins) {
+	// Calculate the difference in state (0 = same, 1 = changed)
+	uint8_t diff = pins ^ bill_global.input;
+	
+	if (BILL_PINS_BUSY(diff) && !BILL_PINS_BUSY(pins)) {
+		// Self-test complete
+		bill_global.state = BILL_STATE_IDLE;
+	}
+}
+void bill_state_idle(uint8_t pins) {
+	uint8_t diff = pins ^ bill_global.input;
+
+	BILL_PORT_ACK(1);
+	BILL_PORT_REJ(1);
+	BILL_PORT_INH(0);
+	if (BILL_PINS_BUSY(diff) && BILL_PINS_BUSY(pins)) {
+		// Scanning started
+		bill_global.state = BILL_STATE_VALIDATION;
+	}
+}
+void bill_state_validation(uint8_t pins) {
+	uint8_t diff = pins ^ bill_global.input;
+	
+	if (BILL_PINS_ABN(diff) && BILL_PINS_ABN(pins)) {
+		// Abort, jam
+		if (bill_global.error) {
+			bill_global.error(BILL_ERROR_SCAN, 0);
+		}
+		bill_global.state = BILL_STATE_ERROR;
+	} else if (BILL_PINS_VALID(diff) && !BILL_PINS_VALID(pins)) {
+		// Scan complete
+		bill_global.state = BILL_STATE_SCANNED;
+	}
+}
+void bill_state_scanned(uint8_t pins) {
+	// Scanning complete, accept or reject banknote
+	// TODO Implement escrow mode (go to state reject)
+	bill_global.state = BILL_STATE_ACCEPT;
+}
+void bill_state_accept(uint8_t pins) {
+	uint8_t diff = pins ^ bill_global.input;
+	
+	// Acknowledge
+	BILL_PORT_ACK(0);
+	// Check for errors
+	if (BILL_PINS_ABN(diff) && BILL_PINS_ABN(pins)) {
+		// Abort, jam
+		if (bill_global.error) {
+			bill_global.error(BILL_ERROR_SCAN, 0);
+		}
+		bill_global.state = BILL_STATE_ERROR;
+	} else if (BILL_PINS_STKF(diff) && BILL_PINS_STKF(pins)) {
+		// Report that the stack is full
+		if (bill_global.error) {
+			bill_global.error(BILL_ERROR_FULL, 0);
+		}
+		bill_global.state = BILL_STATE_END;
+	} else {
+		// Report accepted banknote
+		if (bill_global.report) {
+			size_t i;
+			for (i = 0; i < sizeof(BILL_DENOMINATIONS) / sizeof(BILL_DENOMINATIONS[0]); i++) {
+				if (pgm_read_byte(&BILL_DENOMINATIONS[i].vend) == BILL_PINS_VEND(pins)) {
+					bill_global.report(pgm_read_word(&BILL_DENOMINATIONS[i].denomination));
+					break;
+				}
+			}
+		}
+		bill_global.state = BILL_STATE_END;
+	}
+}
+void bill_state_reject(uint8_t pins) {
+	// Reject
+	BILL_PORT_REJ(0);
+	bill_global.state = BILL_STATE_END;
+}
+void bill_state_error(uint8_t pins) {
+	uint8_t diff = pins ^ bill_global.input;
+	
+	if (BILL_PINS_ABN(diff) && !BILL_PINS_ABN(pins)) {
+		bill_global.state = BILL_STATE_END;
+	}
+}
+void bill_state_end(uint8_t pins) {
+	uint8_t diff = pins ^ bill_global.input;
+	
+	// Deassert signals
+	BILL_PORT_ACK(1);
+	BILL_PORT_REJ(1);
+	if (BILL_PINS_BUSY(diff) && !BILL_PINS_BUSY(pins)) {
+		// Return to idle state
+		bill_global.state = BILL_STATE_IDLE;
+	}
 }
