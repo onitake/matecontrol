@@ -379,35 +379,28 @@ void bill_state_unitialized(uint8_t pins) {
 	bill_global.state = BILL_STATE_SELFTEST;
 }
 void bill_state_selftest(uint8_t pins) {
-	// Calculate the difference in state (0 = same, 1 = changed)
-	uint8_t diff = pins ^ bill_global.input;
-	
-	if (BILL_PINS_BUSY(diff) && !BILL_PINS_BUSY(pins)) {
+	if (!BILL_PINS_BUSY(pins)) {
 		// Self-test complete
 		bill_global.state = BILL_STATE_IDLE;
 	}
 }
 void bill_state_idle(uint8_t pins) {
-	uint8_t diff = pins ^ bill_global.input;
-
 	BILL_PORT_ACK(1);
 	BILL_PORT_REJ(1);
 	BILL_PORT_INH(0);
-	if (BILL_PINS_BUSY(diff) && BILL_PINS_BUSY(pins)) {
+	if (BILL_PINS_BUSY(pins)) {
 		// Scanning started
 		bill_global.state = BILL_STATE_VALIDATION;
 	}
 }
 void bill_state_validation(uint8_t pins) {
-	uint8_t diff = pins ^ bill_global.input;
-	
-	if (BILL_PINS_ABN(diff) && BILL_PINS_ABN(pins)) {
+	if (BILL_PINS_ABN(pins)) {
 		// Abort, jam
 		if (bill_global.error) {
 			bill_global.error(BILL_ERROR_SCAN, 0);
 		}
 		bill_global.state = BILL_STATE_ERROR;
-	} else if (BILL_PINS_VALID(diff) && !BILL_PINS_VALID(pins)) {
+	} else if (!BILL_PINS_VALID(pins)) {
 		// Scan complete
 		bill_global.state = BILL_STATE_SCANNED;
 	}
@@ -418,18 +411,16 @@ void bill_state_scanned(uint8_t pins) {
 	bill_global.state = BILL_STATE_ACCEPT;
 }
 void bill_state_accept(uint8_t pins) {
-	uint8_t diff = pins ^ bill_global.input;
-	
 	// Acknowledge
 	BILL_PORT_ACK(0);
 	// Check for errors
-	if (BILL_PINS_ABN(diff) && BILL_PINS_ABN(pins)) {
+	if (BILL_PINS_ABN(pins)) {
 		// Abort, jam
 		if (bill_global.error) {
 			bill_global.error(BILL_ERROR_SCAN, 0);
 		}
 		bill_global.state = BILL_STATE_ERROR;
-	} else if (BILL_PINS_STKF(diff) && BILL_PINS_STKF(pins)) {
+	} else if (BILL_PINS_STKF(pins)) {
 		// Report that the stack is full
 		if (bill_global.error) {
 			bill_global.error(BILL_ERROR_FULL, 0);
@@ -455,19 +446,15 @@ void bill_state_reject(uint8_t pins) {
 	bill_global.state = BILL_STATE_END;
 }
 void bill_state_error(uint8_t pins) {
-	uint8_t diff = pins ^ bill_global.input;
-	
-	if (BILL_PINS_ABN(diff) && !BILL_PINS_ABN(pins)) {
+	if (!BILL_PINS_ABN(pins)) {
 		bill_global.state = BILL_STATE_END;
 	}
 }
 void bill_state_end(uint8_t pins) {
-	uint8_t diff = pins ^ bill_global.input;
-	
 	// Deassert signals
 	BILL_PORT_ACK(1);
 	BILL_PORT_REJ(1);
-	if (BILL_PINS_BUSY(diff) && !BILL_PINS_BUSY(pins)) {
+	if (!BILL_PINS_BUSY(pins)) {
 		// Return to idle state
 		bill_global.state = BILL_STATE_IDLE;
 	}
