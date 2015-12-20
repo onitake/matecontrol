@@ -511,7 +511,7 @@ void console_validate_bill(const char *buf, uint8_t size) {
 			bill_inhibit(true);
 		} else if (strncasecmp_P(arguments[1], PSTR("accept"), lengths[1]) == 0) {
 			printf_P(PSTR("Banknote scanner inhibit is off\r\n"));
-			bill_inhibit(true);
+			bill_inhibit(false);
 		} else if (strncasecmp_P(arguments[1], PSTR("escrow"), lengths[1]) == 0) {
 			printf_P(PSTR("Banknote scanner escrow mode is on\r\n"));
 			bill_escrow(true);
