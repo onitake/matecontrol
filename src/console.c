@@ -21,6 +21,7 @@
 
 #include <string.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 #include <aversive/irq_lock.h>
@@ -30,6 +31,7 @@
 #include "memory.h"
 #include "bill.h"
 #include "main.h"
+#include "bank.h"
 
 /** I/O event type */
 typedef enum {
@@ -106,6 +108,18 @@ static size_t console_whitespace(const char *buf, int16_t maxlen);
  * @return the number of tokens found
  */
 static size_t console_tokenize(const char *buf, int16_t maxlen, size_t arraylen, const char **tokens, size_t *lengths);
+/**
+ * Parse a fixed-point signed decimal number with 16 bits of precision to the
+ * left of the decimal point and two decimal digits to the right.
+ * 
+ * May return 32767.99 on overflow or -32768.99 on underflow.
+ * @param buf a string
+ * @param maxlen the string length
+ * @param left a pointer to storage for the left hand side of the decimal point
+ * @param right a pointer to storage for the decimal digits
+ * @return the number of processed characters
+ */
+static size_t console_decimal24(const char *buf, int16_t maxlen, int16_t *left, uint8_t *right);
 static uint8_t gpio_pins(char port);
 static bool gpio_pin(char port, uint8_t pin);
 static void gpio_port(char port, uint8_t pin, bool state);
@@ -117,6 +131,7 @@ static void console_validate_led(const char *buf, uint8_t size);
 static void console_validate_exit(const char *buf, uint8_t size);
 static void console_validate_bill(const char *buf, uint8_t size);
 static void console_validate_reboot(const char *buf, uint8_t size);
+static void console_validate_balance(const char *buf, uint8_t size);
 
 /** @cond DOXYGEN_IGNORE */
 static const char MESSAGE_LOGIN[] PROGMEM = "\r\nPress return to open session\r\n";
@@ -127,16 +142,19 @@ static const char COMMAND_NAME_GPIO[] PROGMEM = "gpio";
 static const char COMMAND_NAME_LED[] PROGMEM = "led";
 static const char COMMAND_NAME_EXIT[] PROGMEM = "exit";
 static const char COMMAND_NAME_REBOOT[] PROGMEM = "reboot";
-static const char COMMAND_HELP_HELP[] PROGMEM = "Matemat Controller (c) 2015 Chaostreff Basel\r\n\r\nCommands:\r\n    help    Display a list of all supported commands\r\n    gpio    Control GPIO pins\r\n    led     Control the LEDs\r\n    exit    Exits the terminal session\r\n    bill    Control the banknote scanner\r\n";
+static const char COMMAND_NAME_BALANCE[] PROGMEM = "balance";
+static const char COMMAND_HELP_HELP[] PROGMEM = "Matemat Controller (c) 2015 Chaostreff Basel\r\n\r\nCommands:\r\n    help    Display a list of all supported commands\r\n    gpio    Control GPIO pins\r\n    led     Control the LEDs\r\n    exit    Exits the terminal session\r\n    bill    Control the banknote scanner\r\n    balance Display or set the balance\r\n";
 static const char COMMAND_HELP_GPIO[] PROGMEM = "Usage: gpio [A-G] [0-7] [in, out, on, off]\r\nConfigures (in/out), sets the logic level (on/off) or displays the port status (only port name and optionally bit #) of a GPIO port\r\n";
 static const char COMMAND_HELP_LED[] PROGMEM = "Usage: led [A,B,C] [on, off, toggle]\r\nSets the status of LED A, B or C\r\n";
 static const char COMMAND_HELP_EXIT[] PROGMEM = "Ends the terminal session\r\n";
 static const char COMMAND_HELP_BILL[] PROGMEM = "Usage: bill [inhibit, accept, escrow, direct]\r\nChecks the state of the banknote scanner (no arguments),\r\ninhibits/enables reception or enables/disables escrow mode\r\n";
 static const char COMMAND_HELP_REBOOT[] PROGMEM = "Usage: reboot\r\n";
+static const char COMMAND_HELP_BALANCE[] PROGMEM = "Usage: balance [0.00]\r\nDisplays the current balance or sets it\r\n";
 /** @endcond */
 
-/* Sorted */
+/* Sorted lexicographically by command */
 static const command_t COMMANDS[] PROGMEM = {
+	{ COMMAND_NAME_BALANCE, COMMAND_HELP_BALANCE, console_validate_balance },
 	{ COMMAND_NAME_BILL, COMMAND_HELP_BILL, console_validate_bill },
 	{ COMMAND_NAME_EXIT, COMMAND_HELP_EXIT, console_validate_exit },
 	{ COMMAND_NAME_HELP, COMMAND_HELP_HELP, console_validate_help },
@@ -249,7 +267,7 @@ size_t console_whitespace(const char *buf, int16_t maxlen) {
 	return ws;
 }
 
-static size_t console_tokenize(const char *buf, int16_t maxlen, size_t arraylen, const char **tokens, size_t *lengths) {
+size_t console_tokenize(const char *buf, int16_t maxlen, size_t arraylen, const char **tokens, size_t *lengths) {
 	size_t i;
 	for (i = 0; *buf && maxlen != 0; i++) {
 		tokens[i] = buf;
@@ -264,6 +282,66 @@ static size_t console_tokenize(const char *buf, int16_t maxlen, size_t arraylen,
 			lengths[i] = ws;
 		}
 	}
+	return i;
+}
+
+size_t console_decimal24(const char *buf, int16_t maxlen, int16_t *left, uint8_t *right) {
+	size_t i = 0;
+	bool negative = false;
+	if (maxlen > i) {
+		if (buf[i] == '-') {
+			negative = true;
+			i++;
+		}
+		if (buf[i] == '+') {
+			i++;
+		}
+	}
+	int16_t v = 0;
+	while (maxlen > i && buf[i] != '.') {
+		if (buf[i] >= '0' && buf[i] <= '9') {
+			uint8_t digit = buf[i] - '0';
+			if (v >= 3276) {
+				if (negative) {
+					if (digit > 7) {
+						// Overflow, stop parsing
+						*left = 32767;
+						*right = 99;
+						return i + 1;
+					}
+				} else {
+					if (digit > 8) {
+						// Underflow, stop parsing
+						*left = -32768;
+						*right = 99;
+						return i + 1;
+					}
+				}
+			}
+			v *= 10;
+			i++;
+		}
+	}
+	uint8_t d = 0;
+	if (maxlen > i + 1 && buf[i] == '.') {
+		i++;
+		if (buf[i] >= '0' && buf[i] <= '9') {
+			d = (buf[i] - '0') * 10;
+			i++;
+			if (maxlen > i && buf[i] == '.') {
+				if (buf[i] >= '0' && buf[i] <= '9') {
+					d += buf[i] - '0';
+					i++;
+				}
+			}
+		}
+	}
+	if (negative) {
+		*left = -v;
+	} else {
+		*left = v;
+	}
+	*right = d;
 	return i;
 }
 
@@ -532,6 +610,20 @@ void console_validate_exit(const char *buf, uint8_t size) {
 
 void console_validate_reboot(const char *buf, uint8_t size) {
 	main_shutdown();
+}
+
+void console_validate_balance(const char *buf, uint8_t size) {
+	const char *argument;
+	size_t length;
+	size_t count = console_tokenize(buf, size, 1, &argument, &length);
+	if (count == 1) {
+		currency_t balance;
+		console_decimal24(buf, size, &balance.base, &balance.cents);
+		bank_set_balance(balance);
+	} else {
+		currency_t balance = bank_get_balance();
+		printf_P(PSTR("Current balance: %d.%d\r\n"), balance.base, balance.cents);
+	}
 }
 
 int8_t console_complete(const char *buf, char *dstbuf, uint8_t dstsize, int16_t *state) {
