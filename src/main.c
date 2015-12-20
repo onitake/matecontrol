@@ -37,6 +37,7 @@
 #include "util.h"
 #include "console.h"
 #include "bill.h"
+#include "bank.h"
 
 /**
  * Main process event types
@@ -111,6 +112,10 @@ static void main_bill_report(uint16_t denomination);
  * Report a banknote scanning error to the user (callback)
  */
 static void main_bill_error(bill_error_t error, uint16_t denomination);
+/**
+ * Report a change in account balance
+ */
+static void main_balance_report(currency_t balance);
 
 void watchdog_init(void) {
 #ifdef MCUCSR
@@ -167,6 +172,10 @@ uint16_t main_time(void) {
 
 static void main_bill_report(uint16_t denomination) {
 	printf_P(PSTR("Scanned banknote: %d\r\n"), denomination);
+	currency_t deposit;
+	deposit.base = denomination;
+	deposit.cents = 0;
+	bank_deposit(deposit);
 }
 
 static void main_bill_error(bill_error_t error, uint16_t denomination) {
@@ -191,6 +200,10 @@ static void main_bill_error(bill_error_t error, uint16_t denomination) {
 	printf_P(PSTR("Banknote scan error: %S\r\n"), errstr);
 }
 
+void main_balance_report(currency_t balance) {
+	printf_P(PSTR("Current balance: %d.%d\r\n"), balance.base, balance.cents);
+}
+
 int main(void) {
 	// System initialisation
 	main_global.memory = memory_init(main_global.pool, sizeof(main_global.pool), sizeof(main_event_t));
@@ -208,6 +221,9 @@ int main(void) {
 	
 	// I/O layer initialisation
 	console_init(&main_global.manager, "$ ");
+	
+	// Balance manager initialisation
+	bank_init(main_balance_report);
 	
 	// Turn the third LED on
 	led_action(LED_C, LED_EVENT_TYPE_ON);
@@ -233,6 +249,7 @@ int main(void) {
 	
 	// System shutdown
 	cli();
+	bank_shutdown();
 	bill_shutdown();
 	led_shutdown(true);
 	console_shutdown();

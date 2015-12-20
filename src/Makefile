@@ -10,7 +10,8 @@ SRC = \
 	led.c \
 	clock.c \
 	console.c \
-	bill.c
+	bill.c \
+	bank.c
 
 # Build parameters
 CFLAGS = \
