@@ -200,7 +200,7 @@ static void main_bill_error(bill_error_t error, uint16_t denomination) {
 	printf_P(PSTR("Banknote scan error: %S\r\n"), errstr);
 }
 
-void main_balance_report(currency_t balance) {
+static void main_balance_report(currency_t balance) {
 	printf_P(PSTR("Current balance: %d.%d\r\n"), balance.base, balance.cents);
 }
 

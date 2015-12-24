@@ -36,7 +36,7 @@
  * 100th of the base currency.
  * 
  * For display purposes, the structure members may be used directly, but
- * to handle rollover correctly, use @link currency_add and @link currency_sub
+ * to handle rollover correctly, use currency_add() and currency_sub()
  * for adding and subtracting quantities, respectively.
  */
 typedef struct {
