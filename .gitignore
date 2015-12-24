@@ -14,3 +14,5 @@ doc/Atmel-8151-8-bit-AVR-ATmega128A_Datasheet.pdf
 doc/doxygen_sqlite3.db
 doc/html/
 doc/latex/
+test/testrb
+test/testcurrency

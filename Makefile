@@ -13,7 +13,7 @@ help:
 	@echo "all:        Default; build all MC targets and documentation"
 	@echo "clean:      Delete build targets and intermediate files"
 	@echo "doc:        Compile documentation"
-	@echo "test:       Compile test cases"
+	@echo "test:       Compile and run test cases"
 	@echo "program:    Flash main firmware to controller"
 	@echo "erase:      Erase controller flash"
 	@echo "reset:      Reboot the controller"
@@ -30,7 +30,7 @@ doc:
 	list='$(SUBDIRS)'; for subdir in $$list; do test "$$subdir" = . -o ! -r "$$subdir/$(MAKEFILE)" || (cd $$subdir && $(MAKE) $(MAKEFLAGS) doc); done
 
 test:
-	list='$(SUBDIRS)'; for subdir in $$list; do test "$$subdir" = . -o ! -r "$$subdir/$(MAKEFILE)" || (cd $$subdir && $(MAKE) $(MAKEFLAGS) test); done
+	subdir=test; (cd $$subdir && $(MAKE) $(MAKEFLAGS) test); done
 
 program:
 	subdir=$(SOURCEDIR); (cd $$subdir && $(MAKE) $(MAKEFLAGS) program); done
