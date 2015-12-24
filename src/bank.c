@@ -40,33 +40,55 @@ static bank_t bank_global __attribute__((section(".noinit")));
 currency_t currency_add(currency_t a, currency_t b) {
 	currency_t ret;
 	ret.base = a.base + b.base;
-	if (a.base > 0 && b.base > 0 && ret.base < 0) {
-		ret.base = 32767;
-		ret.cents = 99;
+	if (a.base < 0) {
+		if (b.base < 0) {
+			// Special case, only happens on underflow or carry
+			if (ret.base > 0 || (ret.base == -32768 && a.cents + b.cents >= 100)) {
+				ret.base = -32768;
+				ret.cents = 99;
+			} else {
+				ret.cents = a.cents + b.cents;
+				if (ret.cents >= 100) {
+					ret.cents -= 100;
+					ret.base--;
+				}
+			}
+		} else {
+			if (b.cents > a.cents) {
+				ret.cents = -(b.cents - a.cents) + 100;
+				ret.base++;
+			} else {
+				ret.cents = a.cents - b.cents;
+			}
+		}
 	} else {
-		ret.cents = a.cents + b.cents;
-		if (ret.cents >= 100) {
-			ret.cents -= 100;
-			ret.base++;
+		if (b.base < 0) {
+			if (b.cents > a.cents) {
+				ret.cents = -(b.cents - a.cents) + 100;
+				ret.base--;
+			} else {
+				ret.cents = a.cents - b.cents;
+			}
+		} else {
+			// Special case, only happens on overflow or carry
+			if (ret.base < 0 || (ret.base == 32767 && a.cents + b.cents >= 100)) {
+				ret.base = 32767;
+				ret.cents = 99;
+			} else {
+				ret.cents = a.cents + b.cents;
+				if (ret.cents >= 100) {
+					ret.cents -= 100;
+					ret.base++;
+				}
+			}
 		}
 	}
 	return ret;
 }
 
 currency_t currency_sub(currency_t a, currency_t b) {
-	currency_t ret;
-	ret.base = a.base - b.base;
-	if (a.base < 0 && b.base < 0 && ret.base > 0) {
-		ret.base = -32768;
-		ret.cents = 99;
-	} else {
-		ret.cents = a.cents + b.cents;
-		if (ret.cents >= 100) {
-			ret.cents -= 100;
-			ret.base++;
-		}
-	}
-	return ret;
+	b.base = -b.base;
+	return currency_add(a, b);
 }
 
 bool bank_init(bank_balance_cb *report) {
