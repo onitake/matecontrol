@@ -47,12 +47,14 @@ typedef struct {
 } currency_t;
 
 /**
- * Add two monetary quantities, saturating to 32767.99 if overflow occurs.
+ * Add two (signed) monetary quantities, saturating to 32767.99 on overflow and
+ * -32768.99 on underflow.
  * @return a + b
  */
 currency_t currency_add(currency_t a, currency_t b);
 /**
- * Subtract two monetary quantities, saturating to -32768.99 if underflow occurs.
+ * Subtract two (signed) monetary quantities, saturating to 32767.99 on overflow and
+ * -32768.99 on underflow.
  * @return a - b
  */
 currency_t currency_sub(currency_t a, currency_t b);
