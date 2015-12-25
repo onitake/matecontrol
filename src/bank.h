@@ -56,6 +56,14 @@ currency_t currency_add(currency_t a, currency_t b);
  * @return a - b
  */
 currency_t currency_sub(currency_t a, currency_t b);
+/**
+ * Get the base credit (100 cent units)
+ */
+int16_t currency_base(currency_t c);
+/**
+ * Get the unsigned cent fraction
+ */
+uint8_t currency_cents(currency_t c);
 
 /**
  * Balance change event.

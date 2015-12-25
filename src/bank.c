@@ -91,6 +91,14 @@ currency_t currency_sub(currency_t a, currency_t b) {
 	return currency_add(a, b);
 }
 
+int16_t currency_base(currency_t c) {
+	return c.base;
+}
+
+uint8_t currency_cents(currency_t c) {
+	return c.cents;
+}
+
 bool bank_init(bank_balance_cb *report) {
 	// TODO Read the balance from EEPROM
 	bank_global.balance.base = 0;
