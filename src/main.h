@@ -29,6 +29,8 @@
 #ifndef _MAIN_H
 #define _MAIN_H
 
+#include "bank.h"
+
 /**
  * Get the current system time (ticks)
  */
@@ -38,5 +40,10 @@ uint16_t main_time(void);
  * Signal the main process to shut down.
  */
 void main_shutdown(void);
+
+/**
+ * Get the currently active balance manager.
+ */
+bank_t *main_get_bank(void);
 
 #endif /*_MAIN_H*/

@@ -619,9 +619,9 @@ void console_validate_balance(const char *buf, uint8_t size) {
 	if (count == 1) {
 		currency_t balance;
 		console_decimal24(buf, size, &balance.base, &balance.cents);
-		bank_set_balance(balance);
+		bank_set_balance(main_get_bank(), balance);
 	} else {
-		currency_t balance = bank_get_balance();
+		currency_t balance = bank_get_balance(main_get_bank());
 		printf_P(PSTR("Current balance: %d.%d\r\n"), balance.base, balance.cents);
 	}
 }

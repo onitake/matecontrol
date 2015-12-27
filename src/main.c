@@ -67,6 +67,8 @@ typedef struct {
 	uint16_t time;
 	/** Global event queue manager */
 	struct callout_mgr manager;
+	/** Global credit store */
+	bank_t bank;
 	/** Main process event memory manager */
 	memory_t *memory;
 	/** Main process event memory pool */
@@ -175,7 +177,7 @@ static void main_bill_report(uint16_t denomination) {
 	currency_t deposit;
 	deposit.base = denomination;
 	deposit.cents = 0;
-	bank_deposit(deposit);
+	bank_deposit(&main_global.bank, deposit);
 }
 
 static void main_bill_error(bill_error_t error, uint16_t denomination) {
@@ -204,6 +206,10 @@ static void main_balance_report(currency_t balance) {
 	printf_P(PSTR("Current balance: %d.%d\r\n"), balance.base, balance.cents);
 }
 
+bank_t *main_get_bank(void) {
+	return &main_global.bank;
+}
+
 int main(void) {
 	// System initialisation
 	main_global.memory = memory_init(main_global.pool, sizeof(main_global.pool), sizeof(main_event_t));
@@ -223,7 +229,7 @@ int main(void) {
 	console_init(&main_global.manager, "$ ");
 	
 	// Balance manager initialisation
-	bank_init(main_balance_report);
+	bank_init(&main_global.bank, main_balance_report);
 	
 	// Turn the third LED on
 	led_action(LED_C, LED_EVENT_TYPE_ON);
@@ -249,7 +255,7 @@ int main(void) {
 	
 	// System shutdown
 	cli();
-	bank_shutdown();
+	bank_shutdown(&main_global.bank);
 	bill_shutdown();
 	led_shutdown(true);
 	console_shutdown();

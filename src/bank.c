@@ -22,21 +22,6 @@
 #include <aversive/irq_lock.h>
 #include "bank.h"
 
-/**
- * Bank state structure
- */
-typedef struct {
-	/** The current balance */
-	currency_t balance;
-	/** The balance change event handler */
-	bank_balance_cb *report;
-} bank_t;
-
-/**
- * Global state
- */
-static bank_t bank_global __attribute__((section(".noinit")));
-
 currency_t currency_add(currency_t a, currency_t b) {
 	currency_t ret;
 	ret.base = a.base + b.base;
@@ -99,56 +84,56 @@ uint8_t currency_cents(currency_t c) {
 	return c.cents;
 }
 
-bool bank_init(bank_balance_cb *report) {
+bool bank_init(bank_t *bank, bank_balance_cb *report) {
 	// TODO Read the balance from EEPROM
-	bank_global.balance.base = 0;
-	bank_global.balance.cents = 0;
-	bank_global.report = report;
+	bank->balance.base = 0;
+	bank->balance.cents = 0;
+	bank->report = report;
 	return true;
 }
 
-void bank_shutdown(void) {
+void bank_shutdown(bank_t *bank) {
 	// TODO Store the balance to EEPROM
 }
 
-currency_t bank_get_balance(void) {
+currency_t bank_get_balance(bank_t *bank) {
 	uint8_t flags;
 	IRQ_LOCK(flags);
-	currency_t ret = bank_global.balance;
+	currency_t ret = bank->balance;
 	IRQ_UNLOCK(flags);
 	return ret;
 }
 
-void bank_set_balance(currency_t balance) {
+void bank_set_balance(bank_t *bank, currency_t balance) {
 	uint8_t flags;
 	IRQ_LOCK(flags);
-	bank_global.balance = balance;
+	bank->balance = balance;
 	IRQ_UNLOCK(flags);
-	if (bank_global.report) {
-		bank_global.report(balance);
+	if (bank->report) {
+		bank->report(balance);
 	}
 }
 
-void bank_deposit(currency_t amount) {
+void bank_deposit(bank_t *bank, currency_t amount) {
 	currency_t balance;
 	uint8_t flags;
 	IRQ_LOCK(flags);
-	bank_global.balance = currency_add(bank_global.balance, amount);
-	balance = bank_global.balance;
+	bank->balance = currency_add(bank->balance, amount);
+	balance = bank->balance;
 	IRQ_UNLOCK(flags);
-	if (bank_global.report) {
-		bank_global.report(balance);
+	if (bank->report) {
+		bank->report(balance);
 	}
 }
 
-void bank_withdraw(currency_t amount) {
+void bank_withdraw(bank_t *bank, currency_t amount) {
 	currency_t balance;
 	uint8_t flags;
 	IRQ_LOCK(flags);
-	bank_global.balance = currency_sub(bank_global.balance, amount);
-	balance = bank_global.balance;
+	bank->balance = currency_sub(bank->balance, amount);
+	balance = bank->balance;
 	IRQ_UNLOCK(flags);
-	if (bank_global.report) {
-		bank_global.report(balance);
+	if (bank->report) {
+		bank->report(balance);
 	}
 }

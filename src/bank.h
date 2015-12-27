@@ -47,6 +47,25 @@ typedef struct {
 } currency_t;
 
 /**
+ * Balance change event.
+ * 
+ * This handler will be called directly, not via the event queue.
+ * 
+ * @param balance the current balance
+ */
+typedef void (bank_balance_cb)(currency_t balance);
+
+/**
+ * Bank state structure
+ */
+typedef struct {
+	/** The current balance */
+	currency_t balance;
+	/** The balance change event handler */
+	bank_balance_cb *report;
+} bank_t;
+
+/**
  * Add two (signed) monetary quantities, saturating to 32767.99 on overflow and
  * -32768.99 on underflow.
  * @return a + b
@@ -68,45 +87,45 @@ int16_t currency_base(currency_t c);
 uint8_t currency_cents(currency_t c);
 
 /**
- * Balance change event.
- * 
- * This handler will be called directly, not via the event queue.
- * 
- * @param balance the current balance
- */
-typedef void (bank_balance_cb)(currency_t balance);
-
-/**
- * Initialise the (global) balance and account manager.
+ * Initialise a balance and account manager.
  * @param report a function to call when the balance changes (may be NULL)
+ * @param bank the balance manager
  * @return true, if initialisation was successful
  */
-bool bank_init(bank_balance_cb *report);
+bool bank_init(bank_t *bank, bank_balance_cb *report);
 
 /**
- * Shut the balance manager down.
+ * Shut a balance manager down.
+ * @param bank the balance manager
  */
-void bank_shutdown(void);
+void bank_shutdown(bank_t *bank);
 
 /**
  * Get the current account balance
+ * @param bank the balance manager to get data from
  */
-currency_t bank_get_balance(void);
+currency_t bank_get_balance(bank_t *bank);
 /**
  * Set the current account balance
+ * @param bank the balance manager to access
+ * @param balance the balance to set
  */
-void bank_set_balance(currency_t balance);
+void bank_set_balance(bank_t *bank, currency_t balance);
 /**
  * (Atomically) add to the balance
  * 
  * Warning: Exceeding the balance limit will set the balance to its maximum value
+ * @param bank the balance manager to access
+ * @param amount the amount of credits to add
  */
-void bank_deposit(currency_t amount);
+void bank_deposit(bank_t *bank, currency_t amount);
 /**
  * (Atomically) subtract from the balance
  * 
  * Warning: Exceeding the balance limit will set the balance to its minimum value
+ * @param bank the balance manager to access
+ * @param amount the amount of credits to subtract
  */
-void bank_withdraw(currency_t amount);
+void bank_withdraw(bank_t *bank, currency_t amount);
 
 #endif /*_BANK_H*/
