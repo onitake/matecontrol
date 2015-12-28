@@ -2,6 +2,13 @@
  * @file coin.h
  * @brief Coin acceptor interface driver
  * 
+ * @par Configurable options
+ * 
+ * Macro               | Default  | Values         | Description
+ * --------------------|----------|----------------|-----------------------------------------------
+ * COIN_QUEUE_SIZE     | [undef]  | 0..255         | Size of the event pool
+ * COIN_PRIORITY       | [undef]  | 0..127         | Event queue priority
+ * 
  * @copyright Matemat controller firmware
  * Copyright © 2015 Chaostreff Basel
  * 
@@ -24,6 +31,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <base/callout/callout.h>
 #include "bank.h"
 
 /**
@@ -36,11 +44,12 @@ typedef void (coin_report_cb)(currency_t denomination);
 
 /**
  * Initialise the (global) coin acceptor driver.
+ * @param manager the callout queue to use for passing events
  * @param report a function to call when a banknote was successfully scanned
  * (may be NULL)
  * @return true, if initialisation was successful
  */
-bool coin_init(coin_report_cb *report);
+bool coin_init(struct callout_mgr *manager, coin_report_cb *report);
 
 /**
  * Shut the coin acceptor driver down.

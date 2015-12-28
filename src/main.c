@@ -234,7 +234,7 @@ int main(void) {
 	// Driver initialisation
 	led_init(&main_global.manager);
 	bill_init(&main_global.manager, main_bill_report, main_bill_error);
-	coin_init(main_coin_report);
+	coin_init(&main_global.manager, main_coin_report);
 	
 	// I/O layer initialisation
 	console_init(&main_global.manager, "$ ");
