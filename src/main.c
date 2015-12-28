@@ -37,6 +37,7 @@
 #include "util.h"
 #include "console.h"
 #include "bill.h"
+#include "coin.h"
 #include "bank.h"
 
 /**
@@ -114,6 +115,10 @@ static void main_bill_report(uint16_t denomination);
  * Report a banknote scanning error to the user (callback)
  */
 static void main_bill_error(bill_error_t error, uint16_t denomination);
+/**
+ * Add a scanned banknote value to the piggybank (callback)
+ */
+static void main_coin_report(currency_t denomination);
 /**
  * Report a change in account balance
  */
@@ -206,6 +211,11 @@ static void main_balance_report(currency_t balance) {
 	printf_P(PSTR("Current balance: %d.%d\r\n"), balance.base, balance.cents);
 }
 
+static void main_coin_report(currency_t denomination) {
+	printf_P(PSTR("Scanned coin: %d.%d\r\n"), denomination.base, denomination.cents);
+	bank_deposit(&main_global.bank, denomination);
+}
+
 bank_t *main_get_bank(void) {
 	return &main_global.bank;
 }
@@ -224,6 +234,7 @@ int main(void) {
 	// Driver initialisation
 	led_init(&main_global.manager);
 	bill_init(&main_global.manager, main_bill_report, main_bill_error);
+	coin_init(main_coin_report);
 	
 	// I/O layer initialisation
 	console_init(&main_global.manager, "$ ");
@@ -256,6 +267,7 @@ int main(void) {
 	// System shutdown
 	cli();
 	bank_shutdown(&main_global.bank);
+	coin_shutdown();
 	bill_shutdown();
 	led_shutdown(true);
 	console_shutdown();

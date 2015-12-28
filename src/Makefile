@@ -11,7 +11,8 @@ SRC = \
 	clock.c \
 	console.c \
 	bill.c \
-	bank.c
+	bank.c \
+	coin.c
 
 # Build parameters
 CFLAGS = \

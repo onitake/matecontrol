@@ -132,6 +132,7 @@ static void console_validate_exit(const char *buf, uint8_t size);
 static void console_validate_bill(const char *buf, uint8_t size);
 static void console_validate_reboot(const char *buf, uint8_t size);
 static void console_validate_balance(const char *buf, uint8_t size);
+static void console_validate_coin(const char *buf, uint8_t size);
 
 /** @cond DOXYGEN_IGNORE */
 static const char MESSAGE_LOGIN[] PROGMEM = "\r\nPress return to open session\r\n";
@@ -143,6 +144,7 @@ static const char COMMAND_NAME_LED[] PROGMEM = "led";
 static const char COMMAND_NAME_EXIT[] PROGMEM = "exit";
 static const char COMMAND_NAME_REBOOT[] PROGMEM = "reboot";
 static const char COMMAND_NAME_BALANCE[] PROGMEM = "balance";
+static const char COMMAND_NAME_COIN[] PROGMEM = "coin";
 static const char COMMAND_HELP_HELP[] PROGMEM = "Matemat Controller (c) 2015 Chaostreff Basel\r\n\r\nCommands:\r\n    help    Display a list of all supported commands\r\n    gpio    Control GPIO pins\r\n    led     Control the LEDs\r\n    exit    Exits the terminal session\r\n    bill    Control the banknote scanner\r\n    balance Display or set the balance\r\n";
 static const char COMMAND_HELP_GPIO[] PROGMEM = "Usage: gpio [A-G] [0-7] [in, out, on, off]\r\nConfigures (in/out), sets the logic level (on/off) or displays the port status (only port name and optionally bit #) of a GPIO port\r\n";
 static const char COMMAND_HELP_LED[] PROGMEM = "Usage: led [A,B,C] [on, off, toggle]\r\nSets the status of LED A, B or C\r\n";
@@ -150,12 +152,14 @@ static const char COMMAND_HELP_EXIT[] PROGMEM = "Ends the terminal session\r\n";
 static const char COMMAND_HELP_BILL[] PROGMEM = "Usage: bill [inhibit, accept, escrow, direct]\r\nChecks the state of the banknote scanner (no arguments),\r\ninhibits/enables reception or enables/disables escrow mode\r\n";
 static const char COMMAND_HELP_REBOOT[] PROGMEM = "Usage: reboot\r\n";
 static const char COMMAND_HELP_BALANCE[] PROGMEM = "Usage: balance [0.00]\r\nDisplays the current balance or sets it\r\n";
+static const char COMMAND_HELP_COIN[] PROGMEM = "Usage: coin\r\nDisplays the state of the coin acceptor\r\n";
 /** @endcond */
 
 /* Sorted lexicographically by command */
 static const command_t COMMANDS[] PROGMEM = {
 	{ COMMAND_NAME_BALANCE, COMMAND_HELP_BALANCE, console_validate_balance },
 	{ COMMAND_NAME_BILL, COMMAND_HELP_BILL, console_validate_bill },
+	{ COMMAND_NAME_COIN, COMMAND_HELP_COIN, console_validate_coin },
 	{ COMMAND_NAME_EXIT, COMMAND_HELP_EXIT, console_validate_exit },
 	{ COMMAND_NAME_HELP, COMMAND_HELP_HELP, console_validate_help },
 	{ COMMAND_NAME_GPIO, COMMAND_HELP_GPIO, console_validate_gpio },
@@ -601,6 +605,10 @@ void console_validate_bill(const char *buf, uint8_t size) {
 			return;
 		}
 	}
+}
+
+void console_validate_coin(const char *buf, uint8_t size) {
+	printf_P(PSTR("Coin acceptor is (unknown)\r\n"));
 }
 
 void console_validate_exit(const char *buf, uint8_t size) {
