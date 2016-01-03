@@ -291,10 +291,10 @@ void bill_debug(uint8_t pins) {
 	uint8_t diff = pins ^ bill_global.input;
 	if (diff != 0) {
 		printf_P(PSTR("bill"));
-		if (BILL_PINS_VALID(diff)) printf_P(PSTR(" valid=%c"), BILL_PINS_VALID(pins));
-		if (BILL_PINS_STKF(diff)) printf_P(PSTR(" stkf=%c"), BILL_PINS_STKF(pins));
-		if (BILL_PINS_ABN(diff)) printf_P(PSTR(" abn=%c"), BILL_PINS_ABN(pins));
-		if (BILL_PINS_BUSY(diff)) printf_P(PSTR(" busy=%c"), BILL_PINS_BUSY(pins));
+		if (BILL_PINS_VALID(diff)) printf_P(PSTR(" valid=%c"), BILL_PINS_VALID(pins) ? 'H' : 'L');
+		if (BILL_PINS_STKF(diff)) printf_P(PSTR(" stkf=%c"), BILL_PINS_STKF(pins) ? 'H' : 'L');
+		if (BILL_PINS_ABN(diff)) printf_P(PSTR(" abn=%c"), BILL_PINS_ABN(pins) ? 'H' : 'L');
+		if (BILL_PINS_BUSY(diff)) printf_P(PSTR(" busy=%c"), BILL_PINS_BUSY(pins) ? 'H' : 'L');
 		if (BILL_PINS_VEND(diff)) printf_P(PSTR(" vend=0x%x"), BILL_PINS_VEND(pins) >> 5);
 		printf_P(PSTR("\r\n"));
 	}
