@@ -289,24 +289,15 @@ void bill_shutdown(void) {
 void bill_debug(uint8_t pins) {
 	// Calculate the difference in state (0 = same, 1 = changed)
 	uint8_t diff = pins ^ bill_global.input;
-	/*char ports[17];
-	size_t i;
-	for (i = 0; i < 8; i++) {
-		ports[i] = (PINC & (0x80 >> i)) ? '1' : '0';
+	if (diff != 0) {
+		printf_P(PSTR("bill"));
+		if (BILL_PINS_VALID(diff)) printf_P(PSTR(" valid=%c"), BILL_PINS_VALID(pins));
+		if (BILL_PINS_STKF(diff)) printf_P(PSTR(" stkf=%c"), BILL_PINS_STKF(pins));
+		if (BILL_PINS_ABN(diff)) printf_P(PSTR(" abn=%c"), BILL_PINS_ABN(pins));
+		if (BILL_PINS_BUSY(diff)) printf_P(PSTR(" busy=%c"), BILL_PINS_BUSY(pins));
+		if (BILL_PINS_VEND(diff)) printf_P(PSTR(" vend=0x%x"), BILL_PINS_VEND(pins) >> 5);
+		printf_P(PSTR("\r\n"));
 	}
-	for (i = 0; i < 8; i++) {
-		ports[i + 8] = (PINB & (0x80 >> i)) ? '1' : '0';
-	}
-	ports[16] = '\0';
-	printf_P(PSTR("PINC:PINB=%s\r\n"), ports);
-	printf_P(PSTR("bill valid=%c stkf=%c abn=%c busy=%c vend=%u\r\n"), BILL_PINS_VALID(pins) ? 'H' : 'L', BILL_PINS_STKF(pins) ? 'H' : 'L', BILL_PINS_ABN(pins) ? 'H' : 'L', BILL_PINS_BUSY(pins) ? 'H' : 'L', BILL_PINS_VEND(pins) >> 5);*/
-	printf_P(PSTR("bill"));
-	if (BILL_PINS_VALID(diff)) printf_P(PSTR(" valid=%c"), BILL_PINS_VALID(pins));
-	if (BILL_PINS_STKF(diff)) printf_P(PSTR(" stkf=%c"), BILL_PINS_STKF(pins));
-	if (BILL_PINS_ABN(diff)) printf_P(PSTR(" abn=%c"), BILL_PINS_ABN(pins));
-	if (BILL_PINS_BUSY(diff)) printf_P(PSTR(" busy=%c"), BILL_PINS_BUSY(pins));
-	if (BILL_PINS_VEND(diff)) printf_P(PSTR(" vend=0x%x"), BILL_PINS_VEND(pins) >> 5);
-	printf_P(PSTR("\r\n"));
 }
 
 void bill_callback(struct callout_mgr *cm, struct callout *tim, void *arg) {
