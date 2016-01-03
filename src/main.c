@@ -120,6 +120,10 @@ static void main_bill_error(bill_error_t error, uint16_t denomination);
  */
 static void main_coin_report(currency_t denomination);
 /**
+ * Report a coin acceptor error to the user (callback)
+ */
+static void main_coin_error(coin_error_t error);
+/**
  * Report a change in account balance
  */
 static void main_balance_report(currency_t balance);
@@ -216,6 +220,10 @@ static void main_coin_report(currency_t denomination) {
 	bank_deposit(&main_global.bank, denomination);
 }
 
+static void main_coin_error(coin_error_t error) {
+	printf_P(PSTR("Coin acceptor alarm\r\n"));
+}
+
 bank_t *main_get_bank(void) {
 	return &main_global.bank;
 }
@@ -234,7 +242,7 @@ int main(void) {
 	// Driver initialisation
 	led_init(&main_global.manager);
 	bill_init(&main_global.manager, main_bill_report, main_bill_error);
-	coin_init(&main_global.manager, main_coin_report);
+	coin_init(&main_global.manager, main_coin_report, main_coin_error);
 	
 	// I/O layer initialisation
 	console_init(&main_global.manager, "$ ");

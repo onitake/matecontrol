@@ -35,21 +35,37 @@
 #include "bank.h"
 
 /**
- * Successful scan event handler.
+ * Error codes
+ */
+typedef enum {
+	/** Alarm state */
+	COIN_ERROR_ALARM,
+} coin_error_t;
+
+/**
+ * Coin acceptance event handler.
  * 
  * This handler will be called directly, not via the event queue.
- * @param denomination the value of the scanned banknote
+ * @param denomination the value of the coin
  */
 typedef void (coin_report_cb)(currency_t denomination);
+/**
+ * Coin acceptor error event handler.
+ * 
+ * This error handler will be called directly, not via the event queue.
+ * @param error an error code
+ */
+typedef void (coin_error_cb)(coin_error_t error);
 
 /**
  * Initialise the (global) coin acceptor driver.
  * @param manager the callout queue to use for passing events
  * @param report a function to call when a banknote was successfully scanned
  * (may be NULL)
+ * @param error a function to call when an error occurs (may be NULL)
  * @return true, if initialisation was successful
  */
-bool coin_init(struct callout_mgr *manager, coin_report_cb *report);
+bool coin_init(struct callout_mgr *manager, coin_report_cb *report, coin_error_cb *error);
 
 /**
  * Shut the coin acceptor driver down.
