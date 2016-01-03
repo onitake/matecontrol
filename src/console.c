@@ -290,63 +290,68 @@ size_t console_tokenize(const char *buf, int16_t maxlen, size_t arraylen, const 
 }
 
 size_t console_decimal24(const char *buf, int16_t maxlen, int16_t *left, uint8_t *right) {
-	size_t i = 0;
-	bool negative = false;
-	if (maxlen > i) {
-		if (buf[i] == '-') {
-			negative = true;
-			i++;
+	if (buf && maxlen > 0) {
+		size_t i = 0;
+		bool negative = false;
+		if (maxlen > i) {
+			if (buf[i] == '-') {
+				negative = true;
+				i++;
+			}
+			if (buf[i] == '+') {
+				i++;
+			}
 		}
-		if (buf[i] == '+') {
-			i++;
-		}
-	}
-	int16_t v = 0;
-	while (maxlen > i && buf[i] != '.') {
-		if (buf[i] >= '0' && buf[i] <= '9') {
-			uint8_t digit = buf[i] - '0';
-			if (v >= 3276) {
-				if (negative) {
-					if (digit > 7) {
-						// Overflow, stop parsing
-						*left = 32767;
-						*right = 99;
-						return i + 1;
+		int16_t v = 0;
+		while (maxlen > i && buf[i] != '.') {
+			if (buf[i] >= '0' && buf[i] <= '9') {
+				uint8_t digit = buf[i] - '0';
+				if (v >= 3276) {
+					if (negative) {
+						if (digit > 7) {
+							// Overflow, stop parsing
+							*left = 32767;
+							*right = 99;
+							return i + 1;
+						}
+					} else {
+						if (digit > 8) {
+							// Underflow, stop parsing
+							*left = -32768;
+							*right = 99;
+							return i + 1;
+						}
 					}
-				} else {
-					if (digit > 8) {
-						// Underflow, stop parsing
-						*left = -32768;
-						*right = 99;
-						return i + 1;
+				}
+				v *= 10;
+				i++;
+			}
+		}
+		uint8_t d = 0;
+		if (maxlen > i + 1 && buf[i] == '.') {
+			i++;
+			if (buf[i] >= '0' && buf[i] <= '9') {
+				d = (buf[i] - '0') * 10;
+				i++;
+				if (maxlen > i && buf[i] == '.') {
+					if (buf[i] >= '0' && buf[i] <= '9') {
+						d += buf[i] - '0';
+						i++;
 					}
 				}
 			}
-			v *= 10;
-			i++;
 		}
-	}
-	uint8_t d = 0;
-	if (maxlen > i + 1 && buf[i] == '.') {
-		i++;
-		if (buf[i] >= '0' && buf[i] <= '9') {
-			d = (buf[i] - '0') * 10;
-			i++;
-			if (maxlen > i && buf[i] == '.') {
-				if (buf[i] >= '0' && buf[i] <= '9') {
-					d += buf[i] - '0';
-					i++;
-				}
-			}
+		if (negative) {
+			*left = -v;
+		} else {
+			*left = v;
 		}
+		*right = d;
+		return i;
 	}
-	if (negative) {
-		*left = -v;
-	} else {
-		*left = v;
-	}
-	*right = d;
-	return i;
+	*left = 0;
+	*right = 0;
+	return 0;
 }
 
 void console_validate(const char *buf, uint8_t size) {
@@ -621,12 +626,12 @@ void console_validate_reboot(const char *buf, uint8_t size) {
 }
 
 void console_validate_balance(const char *buf, uint8_t size) {
-	const char *argument;
-	size_t length;
-	size_t count = console_tokenize(buf, size, 1, &argument, &length);
-	if (count == 1) {
+	const char *arguments[2];
+	size_t lengths[2];
+	size_t count = console_tokenize(buf, size, 2, arguments, lengths);
+	if (count == 2) {
 		currency_t balance;
-		console_decimal24(buf, size, &balance.base, &balance.cents);
+		console_decimal24(arguments[1], lengths[1], &balance.base, &balance.cents);
 		bank_set_balance(main_get_bank(), balance);
 	} else {
 		currency_t balance = bank_get_balance(main_get_bank());
