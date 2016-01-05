@@ -145,7 +145,7 @@ static const char COMMAND_NAME_EXIT[] PROGMEM = "exit";
 static const char COMMAND_NAME_REBOOT[] PROGMEM = "reboot";
 static const char COMMAND_NAME_BALANCE[] PROGMEM = "balance";
 static const char COMMAND_NAME_COIN[] PROGMEM = "coin";
-static const char COMMAND_HELP_HELP[] PROGMEM = "Matemat Controller (c) 2015 Chaostreff Basel\r\n\r\nCommands:\r\nhelp\r\ngpio\r\nled\r\nexit\r\nbill\r\nbalance\r\n";
+static const char COMMAND_HELP_HELP[] PROGMEM = "Matemat Controller (c) 2015 Chaostreff Basel\r\n\r\nCommands:\r\nhelp\r\ngpio\r\nled\r\nexit\r\nbill\r\nbalance\r\nreboot\r\n";
 static const char COMMAND_HELP_GPIO[] PROGMEM = "Usage: gpio [A-G] [0-7] [in, out, on, off]\r\nConfigures (in/out), sets the logic level (on/off) or displays the port status (only port name and optionally bit #) of a GPIO port\r\n";
 static const char COMMAND_HELP_LED[] PROGMEM = "Usage: led [A,B,C] [on, off, toggle]\r\nSets the status of LED A, B or C\r\n";
 static const char COMMAND_HELP_EXIT[] PROGMEM = "Ends the terminal session\r\n";
@@ -421,18 +421,25 @@ void gpio_port(char port, uint8_t pin, bool state) {
 	switch (port) {
 		case 'A':
 			if (state) PORTA |= _BV(pin); else PORTA &= _BV(pin);
+			break;
 		case 'B':
 			if (state) PORTB |= _BV(pin); else PORTB &= _BV(pin);
+			break;
 		case 'C':
 			if (state) PORTC |= _BV(pin); else PORTC &= _BV(pin);
+			break;
 		case 'D':
 			if (state) PORTD |= _BV(pin); else PORTD &= _BV(pin);
+			break;
 		case 'E':
 			if (state) PORTE |= _BV(pin); else PORTE &= _BV(pin);
+			break;
 		case 'F':
 			if (state) PORTF |= _BV(pin); else PORTF &= _BV(pin);
+			break;
 		case 'G':
 			if (state) PORTG |= _BV(pin); else PORTG &= _BV(pin);
+			break;
 	}
 }
 
@@ -440,18 +447,25 @@ void gpio_ddr(char port, uint8_t pin, bool state) {
 	switch (port) {
 		case 'A':
 			if (state) DDRA |= _BV(pin); else DDRA &= _BV(pin);
+			break;
 		case 'B':
 			if (state) DDRB |= _BV(pin); else DDRB &= _BV(pin);
+			break;
 		case 'C':
 			if (state) DDRC |= _BV(pin); else DDRC &= _BV(pin);
+			break;
 		case 'D':
 			if (state) DDRD |= _BV(pin); else DDRD &= _BV(pin);
+			break;
 		case 'E':
 			if (state) DDRE |= _BV(pin); else DDRE &= _BV(pin);
+			break;
 		case 'F':
 			if (state) DDRF |= _BV(pin); else DDRF &= _BV(pin);
+			break;
 		case 'G':
 			if (state) DDRG |= _BV(pin); else DDRG &= _BV(pin);
+			break;
 	}
 }
 
